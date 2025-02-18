@@ -6,51 +6,75 @@ on:
       - main
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout código
+        uses: actions/checkout@v3
+      
+      - name: Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-    - name: Install dependencies
-      run: npm install  # comando instalar as dependências do seu projeto
+      - name: Instalar dependências
+        run: npm install
+      
+      - name: Executar testes
+        run: npm test
+      
+      - name: Construir aplicação
+        run: npm run build
+      
+      - name: Armazenar artefato
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-build
+          path: dist/
 
-    - name: Run unit tests
-      run: npm test  # comando para executar os testes unitários
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artefato
+        uses: actions/download-artifact@v3
+        with:
+          name: app-build
 
-    - name: Build application
-      run: npm run build  # comando para construir a aplicação
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: web-app
-        path: build/  # diretório onde a aplicação construída está localizada
+      - name: Criar release no GitHub
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy:
+    needs: release
     runs-on: ubuntu-latest
-    needs: build-and-test
-    environment: test
+    environment: testing
     steps:
-    - name: Download artifact
-      uses: actions/download-artifact@v2
-      with:
-        name: web-app
-        path: build/
+      - name: Download artefato
+        uses: actions/download-artifact@v3
+        with:
+          name: app-build
+      
+      - name: Deploy para ambiente de teste
+        run: |
+          echo "Fazendo deploy..."
+          # Comandos de deploy aqui
 
-    - name: Deploy to test environment
-      run: echo "Deploying to ACT-test environment..."  # substitua pelo comando real de deploy
-
-    - name: Notify on failure
-      if: failure()
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: smtp.gmail.com
-        server_port: 587
-        username: ${{ secrets.MAIL_USERNAME }}
-        password: ${{ secrets.MAIL_PASSWORD }}
-        subject: "ACT Pipeline Failed"
-        body: "The ACT-2 pipeline failed. Please check the logs."
-        to: lucas_lima_franco@example.com
-        from: ${{ secrets.MAIL_USERNAME }}
+  notify:
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar E-mail
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.example.com
+          server_port: 587
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "Falha no CI/CD Pipeline"
+          body: "O pipeline falhou em uma das etapas. Verifique o GitHub Actions."
+          to: lucas_lima_franco@live.com
