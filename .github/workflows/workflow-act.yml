@@ -1,0 +1,56 @@
+name: workflow-act
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: npm install  # comando instalar as dependências do seu projeto
+
+    - name: Run unit tests
+      run: npm test  # comando para executar os testes unitários
+
+    - name: Build application
+      run: npm run build  # comando para construir a aplicação
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: web-app
+        path: build/  # diretório onde a aplicação construída está localizada
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    environment: test
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: web-app
+        path: build/
+
+    - name: Deploy to test environment
+      run: echo "Deploying to ACT-test environment..."  # substitua pelo comando real de deploy
+
+    - name: Notify on failure
+      if: failure()
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.MAIL_USERNAME }}
+        password: ${{ secrets.MAIL_PASSWORD }}
+        subject: "ACT Pipeline Failed"
+        body: "The ACT-2 pipeline failed. Please check the logs."
+        to: lucas_lima_franco@example.com
+        from: ${{ secrets.MAIL_USERNAME }}
